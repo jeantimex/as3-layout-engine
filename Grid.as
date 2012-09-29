@@ -14,11 +14,24 @@ package {
 		public static var sizeW:Number = 3;
 		public static var sizeH:Number = 3;
 		
+		public var blocks:Array;
+		
 		/**
 		 * Constructor
 		 */
 		public function Grid() {
+			blocks = new Array();
 			g = background.graphics;
+		}
+		
+		/**
+		 * 
+		 */
+		public function addBlock( block:Block ):Boolean {
+			block.container = this;
+			blocks.push( block );
+			addChild( block );
+			return true;
 		}
 		
 		/**
@@ -51,8 +64,15 @@ package {
 		/**
 		 * 
 		 */
-		public function getCellsIndices( px:Number, py:Number, pw:Number, ph:Number, extend:Boolean = false ):Array {
+		public function getCellsIndices( block:Block, isDragging:Boolean = false ):Array {
+			var i, j, k, m, n:int;
+			
 			var cells:Array = new Array();
+			
+			var px:Number = block.x;
+			var py:Number = block.y;
+			var pw:Number = block.background.width;
+			var ph:Number = block.background.height;
 			
 			var ox:Number = Math.round( px / gridW );
 			var oy:Number = Math.round( py / gridH );
@@ -60,7 +80,7 @@ package {
 			var ex:Number = ( px + pw ) / gridW;
 			var ey:Number = ( py + ph ) / gridH;
 			
-			if ( extend ) {
+			if ( isDragging ) {
 				ex = Math.ceil( ex );
 				ey = Math.ceil( ey );
 			} else {
@@ -75,13 +95,56 @@ package {
 			ex = ex > sizeW ? sizeW : ex;
 			ey = ey > sizeH ? sizeH : ey;
 			
-			for (var i:int = ox; i < ex; ++i) {
-				for (var j:int = oy; j < ey; ++j) {
-					cells.push(i + j * sizeW);
+			for ( i = ox; i < ex; ++i ) {
+				for ( j = oy; j < ey; ++j ) {
+					cells.push( i + j * sizeW );
 				}
 			}
 			
+			cells.sort();
+			
+			// TODO...
+			if ( isDragging ) {
+				
+				for ( i = 0; i < blocks.length; ++i ) {
+					if ( blocks[i] as Block == block ) {
+						continue;
+					}
+					var conflicts:Array = getConflicts( cells, blocks[i] as Block );
+					for ( j = 0; j < conflicts.length; ++j ) {
+						// Same column as block.cells[0]
+						if ( ( conflicts[j] - block.cells[0] ) % sizeW == 0 ) {
+							// Remove down from the conflict cell
+							for ( k = conflicts[j]; k < sizeW * sizeH; k += sizeW ) {
+								Utils.arraySplice( cells, k );
+							}
+						} else {
+							// Remove whole column of conflict cell and all columns from right
+							for ( m = int( conflicts[j] % sizeW ); m <= int( cells[cells.length - 1] % sizeW ); ++m ) {
+								for ( n = m; n < sizeW * sizeH; n += sizeW ) {
+									Utils.arraySplice( cells, n );
+								}
+							}
+						}
+					}
+				}
+				
+			}
+			
 			return cells;
+		}
+		
+		/**
+		 * 
+		 */
+		private function getConflicts( cells:Array, block:Block ):Array {
+			var conflicts:Array = new Array();
+			for ( var i:int = 0; i < cells.length; ++i ) {
+				if ( block.cells.indexOf( cells[i] ) > -1 ) {
+					conflicts.push( cells[i] );
+				}
+			}
+			return conflicts;
 		}
 		
 		/**
