@@ -2,33 +2,107 @@ package {
 	
 	import flash.display.Graphics;
 	import flash.display.MovieClip;
+	import flash.display.Sprite;
+	import flash.geom.Point;
+	import flash.text.TextField;
 	
 	public class Grid extends MovieClip {
 		
-		public var background:MovieClip;
+		private var background:Sprite;
+		private var frame:Sprite;
+		
 		private var g:Graphics;
 		
-		public static var gridW:Number = 300;
-		public static var gridH:Number = 160;
+		private var gridW:Number = 0;
+		private var gridH:Number = 0;
 		
-		public static var sizeW:Number = 3;
-		public static var sizeH:Number = 3;
+		private var sizeW:Number = 1;
+		private var sizeH:Number = 1;
 		
-		public var blocks:Array;
+		private var blocks:Array;
 		
 		/**
 		 * Constructor
 		 */
 		public function Grid() {
 			blocks = new Array();
+			
+			background = new Sprite();
+			frame = new Sprite();
+			
 			g = background.graphics;
+			
+			addChild( background );
+			addChild( frame );
+		}
+		
+		/**
+		 * 
+		 */
+		public function init( option:Object ): void {
+			// Configure the grid
+			x = option.hasOwnProperty( "x" ) ? option.x : 0;
+			y = option.hasOwnProperty( "y" ) ? option.y : 0;
+			sizeW = option.hasOwnProperty( "sizeW" ) ? option.sizeW : 1;
+			sizeH = option.hasOwnProperty( "sizeH" ) ? option.sizeH : 1;
+			gridW = option.hasOwnProperty( "gridW" ) ? option.gridW : 0;
+			gridH = option.hasOwnProperty( "gridH" ) ? option.gridH : 0;
+			
+			// Draw grid frame
+			while ( frame.numChildren > 0 ) frame.removeChildAt( frame.numChildren - 1 );
+			
+			var dlTop:DashedLine = new DashedLine( sizeW*gridW, 0x999999, 5, 2, 0.1 );
+			dlTop.drawBetween( new Point( 0, 0 ), new Point( sizeW * gridW, 0 ) );
+			
+			var dlRight:DashedLine = new DashedLine( sizeH*gridH, 0x999999, 5, 2, 0.1 );
+			dlRight.drawBetween( new Point( sizeW * gridW, 0 ), new Point( sizeW * gridW, sizeH * gridH ) );
+			
+			var dlBottom:DashedLine = new DashedLine( sizeW*gridW, 0x999999, 5, 2, 0.1 );
+			dlBottom.drawBetween( new Point( 0, sizeH * gridH ), new Point( sizeW * gridW, sizeH * gridH ) );
+			
+			var dlLeft:DashedLine = new DashedLine( sizeH*gridH, 0x999999, 5, 2, 0.1 );
+			dlLeft.drawBetween( new Point( 0, 0 ), new Point( 0, sizeH * gridH ) );
+			
+			frame.addChild( dlTop );
+			frame.addChild( dlRight );
+			frame.addChild( dlBottom );
+			frame.addChild( dlLeft );
+			
+			// Draw middle dashlines
+			var i, j:int;
+			var dl:DashedLine;
+			
+			for ( i = 1; i < sizeH; ++i ) {
+				dl = new DashedLine( sizeW*gridW, 0x999999, 5, 2, 0.1 );
+				dl.drawBetween( new Point( 0, i * gridH ), new Point( sizeW * gridW, i * gridH ) );
+				frame.addChild( dl );
+			}
+			
+			for ( i = 1; i < sizeW; ++i ) {
+				dl = new DashedLine( sizeH*gridH, 0x999999, 5, 2, 0.1 );
+				dl.drawBetween( new Point( i * gridW, 0 ), new Point( i * gridW, sizeH * gridH ) );
+				frame.addChild( dl );
+			}
+			
+			// Add frame label
+			for ( i = 0; i < sizeH; ++i ) {
+				for ( j = 0; j < sizeW; ++j ) {
+					var lbl:TextField = new TextField();
+					lbl.width = gridW;
+					lbl.height = gridH;
+					lbl.text = String( Number( i * sizeW + j ) );
+					lbl.x = j * gridW;
+					lbl.y = i * gridH;
+					lbl.alpha = 0.8;
+					frame.addChild( lbl );
+				}
+			}
 		}
 		
 		/**
 		 * 
 		 */
 		public function addBlock( block:Block ):Boolean {
-			block.container = this;
 			blocks.push( block );
 			addChild( block );
 			return true;
@@ -40,13 +114,13 @@ package {
 		public function lightOn( cells:Array ): void {
 			// Clear the current highlights
 			g.clear();
-			g.beginFill( 0x66CCFF, 0.2 );
+			g.beginFill( 0xFF9900, 0.5 );
 			
 			for (var i:int = 0; i < cells.length; ++i) {
 				var index:Number = cells[i];
 				
-				var px:Number = int( index % sizeW ) * Grid.gridW;
-				var py:Number = int( index / sizeW ) * Grid.gridH;
+				var px:Number = int( index % sizeW ) * gridW;
+				var py:Number = int( index / sizeW ) * gridH;
 				
 				g.drawRect( px, py, gridW, gridH );
 			}
@@ -71,8 +145,8 @@ package {
 			
 			var px:Number = block.x;
 			var py:Number = block.y;
-			var pw:Number = block.background.width;
-			var ph:Number = block.background.height;
+			var pw:Number = block.w;
+			var ph:Number = block.h;
 			
 			var ox:Number = Math.round( px / gridW );
 			var oy:Number = Math.round( py / gridH );
@@ -101,19 +175,21 @@ package {
 				}
 			}
 			
-			cells.sort();
+			cells.sort( Array.NUMERIC );
+			//trace("---------------");
+			//trace("cells: " + cells);
 			
 			// Get cell min and max row index and column index
 			var minRow:int = int( cells[0] / sizeW );
 			var minCol:int = int( cells[0] % sizeW );
 			var maxRow:int = int( cells[cells.length - 1] / sizeW );
 			var maxCol:int = int( cells[cells.length - 1] % sizeW );
-			
-			//trace("min row: " + minRow);
-			//trace("min col: " + minCol);
-			//trace("max row: " + maxRow);
-			//trace("max col: " + maxCol);
-			
+			/*
+			trace("min row: " + minRow);
+			trace("min col: " + minCol);
+			trace("max row: " + maxRow);
+			trace("max col: " + maxCol);
+			*/
 			// -------------------------------------------------------
 			// 
 			// During resizing, we need to find out the available cells
@@ -147,7 +223,7 @@ package {
 						
 						// If hits the "wall", calculate the areas from k up to minRow
 						if ( cells.indexOf( k ) < 0 || int( k % sizeW ) == maxCol ) {
-							
+							//trace( "k: " + k );
 							// For each row we record the possible area and its cells
 							// Later on we will find out the max area
 							var obj:Object = {
@@ -166,8 +242,8 @@ package {
 							var kCellRight:Number = ( int( k % sizeW ) + ( ( cells.indexOf( k ) < 0 ) ? 0: 1 ) ) * gridW;
 							var kCellBottom:Number = ( int( k / sizeW ) + 1 ) * gridH;
 							
-							var areaRight:Number = ( block.x + block.background.width ) < kCellRight ? mouseX : kCellRight;
-							var areaBottom:Number = ( block.y + block.background.height ) < kCellBottom ? mouseY : kCellBottom;
+							var areaRight:Number = ( block.x + block.w ) < kCellRight ? mouseX : kCellRight;
+							var areaBottom:Number = ( block.y + block.h ) < kCellBottom ? mouseY : kCellBottom;
 							
 							var areaWidth:Number = areaRight - int( cells[0] % sizeW ) * gridW;
 							var areaHeight:Number = areaBottom - int( cells[0] / sizeW ) * gridH;
@@ -188,7 +264,9 @@ package {
 				
 				areas.sortOn( [ "area" ], [ Array.NUMERIC | Array.DESCENDING ] );
 				
-				return areas[0].cells;
+				if ( areas.length > 0 ) {
+					return areas[0].cells;
+				}
 			}
 			
 			return cells;
@@ -211,7 +289,7 @@ package {
 		 * 
 		 */
 		public function getCellsInfo( cells:Array ):Object {
-			cells.sort();
+			cells.sort( Array.NUMERIC );
 			
 			// Left vertex index
 			var firstIdx:Number = cells[0];
