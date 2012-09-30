@@ -103,32 +103,92 @@ package {
 			
 			cells.sort();
 			
-			// TODO...
+			// Get cell min and max row index and column index
+			var minRow:int = int( cells[0] / sizeW );
+			var minCol:int = int( cells[0] % sizeW );
+			var maxRow:int = int( cells[cells.length - 1] / sizeW );
+			var maxCol:int = int( cells[cells.length - 1] % sizeW );
+			
+			//trace("min row: " + minRow);
+			//trace("min col: " + minCol);
+			//trace("max row: " + maxRow);
+			//trace("max col: " + maxCol);
+			
+			// -------------------------------------------------------
+			// 
+			// During resizing, we need to find out the available cells
+			//
+			// -------------------------------------------------------
 			if ( isDragging ) {
 				
 				for ( i = 0; i < blocks.length; ++i ) {
 					if ( blocks[i] as Block == block ) {
 						continue;
 					}
+					
+					// Get all the confilct cells
 					var conflicts:Array = getConflicts( cells, blocks[i] as Block );
+					
+					// Remove cells from conflict cell down to maxRow
 					for ( j = 0; j < conflicts.length; ++j ) {
-						// Same column as block.cells[0]
-						if ( ( conflicts[j] - block.cells[0] ) % sizeW == 0 ) {
-							// Remove down from the conflict cell
-							for ( k = conflicts[j]; k < sizeW * sizeH; k += sizeW ) {
-								Utils.arraySplice( cells, k );
-							}
-						} else {
-							// Remove whole column of conflict cell and all columns from right
-							for ( m = int( conflicts[j] % sizeW ); m <= int( cells[cells.length - 1] % sizeW ); ++m ) {
-								for ( n = m; n < sizeW * sizeH; n += sizeW ) {
-									Utils.arraySplice( cells, n );
-								}
-							}
+						for ( k = conflicts[j]; int( k / sizeW ) <= maxRow; k += sizeW ) {
+							Utils.arraySplice( cells, k );
 						}
 					}
 				}
 				
+				// Get all successive areas and their cells, do horizontal scan and row by row
+				var areas:Array = new Array();
+				
+				for ( i = cells[0]; int( i / sizeW ) <= maxRow; i += sizeW ) {
+					
+					for ( j = 0; ; ++j ) {
+						k = i + j;
+						
+						// If hits the "wall", calculate the areas from k up to minRow
+						if ( cells.indexOf( k ) < 0 || int( k % sizeW ) == maxCol ) {
+							
+							// For each row we record the possible area and its cells
+							// Later on we will find out the max area
+							var obj:Object = {
+								area: 0,
+								cells: []
+							};
+							
+							// Find the cells
+							for ( m = int( cells[0] / sizeW ); m <= int( k / sizeW ); ++m ) {
+								for ( n = int( cells[0] % sizeW ); n < int( k % sizeW ) + ( ( cells.indexOf( k ) < 0 ) ? 0 : 1 ); ++n ) {
+									obj.cells.push( m * sizeW + n );
+								}
+							}
+							
+							// Calculate the area
+							var kCellRight:Number = ( int( k % sizeW ) + ( ( cells.indexOf( k ) < 0 ) ? 0: 1 ) ) * gridW;
+							var kCellBottom:Number = ( int( k / sizeW ) + 1 ) * gridH;
+							
+							var areaRight:Number = ( block.x + block.background.width ) < kCellRight ? mouseX : kCellRight;
+							var areaBottom:Number = ( block.y + block.background.height ) < kCellBottom ? mouseY : kCellBottom;
+							
+							var areaWidth:Number = areaRight - int( cells[0] % sizeW ) * gridW;
+							var areaHeight:Number = areaBottom - int( cells[0] / sizeW ) * gridH;
+							
+							//trace("[" + k + "]: " + kCellRight + ", " + kCellBottom);
+							//trace("[m]: " + areaWidth + ", " + areaHeight);
+							
+							obj.area = areaWidth * areaHeight;
+							
+							//trace( "row " + int( i / sizeW ) + " [area: " + obj.area + ", cells: " + obj.cells + "]" );
+							
+							areas.push( obj );
+							
+							break;
+						}
+					}
+				}
+				
+				areas.sortOn( [ "area" ], [ Array.NUMERIC | Array.DESCENDING ] );
+				
+				return areas[0].cells;
 			}
 			
 			return cells;
