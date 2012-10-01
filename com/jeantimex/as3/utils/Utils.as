@@ -11,17 +11,17 @@ package com.jeantimex.as3.utils {
 		/**
 		 * Remove an element from an array
 		 * 
-		 * @param arr
-		 * @param value
-		 * @return 
+		 * @param array The host array
+		 * @param value The value that is going to be removed
+		 * @return The modified array
 		 */
-		public static function arraySplice( arr:Array, value:* ): Array {
-			for ( var i:int = arr.length - 1; i >= 0; --i ) {
-				if ( arr[i] === value ) {
-					arr.splice( i, 1 );
+		public static function arraySplice( array:Array, value:* ): Array {
+			for ( var i:int = array.length - 1; i >= 0; --i ) {
+				if ( array[i] === value ) {
+					array.splice( i, 1 );
 				}
 			}
-			return arr;
+			return array;
 		}
 	}
 }
